@@ -65,23 +65,21 @@ app.use('/web/api', webRoutes);
 
 // Health check to verify version
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.5', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.0.6', timestamp: new Date().toISOString() });
 });
 
 // --- STATIC FILE SERVING ---
-// Consolidated approach: Serve mobile_dist from multiple mount points to satisfy both relative and absolute paths
 const mobileDistPath = path.join(__dirname, 'mobile_dist');
 const webPublicPath = path.join(__dirname, 'web_public');
 
+// 1. Web Dashboard (High Priority)
 app.use('/web', express.static(webPublicPath));
+
+// 2. Mobile App (Mounted at /mobile)
 app.use('/mobile', express.static(mobileDistPath));
 
-// These catch absolute paths like /assets/ or /_expo/ requested from the root
-app.use('/_expo', express.static(path.join(mobileDistPath, '_expo')));
-app.use('/assets', express.static(path.join(mobileDistPath, 'assets')));
-app.get('/favicon.ico', (req, res) => res.sendFile(path.join(mobileDistPath, 'favicon.ico')));
-
-// Final fallback for any stray root requests
+// 3. Absolute Path Fallbacks
+// This catches /assets, /_expo, /favicon.ico, etc. requested from root
 app.use(express.static(mobileDistPath));
 
 const PORT = process.env.PORT1 || 9271;
