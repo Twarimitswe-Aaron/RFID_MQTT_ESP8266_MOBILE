@@ -19,6 +19,12 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const server = http.createServer(app);
+
+// Simple logger middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -59,8 +65,7 @@ app.use('/mobile', express.static(path.join(__dirname, 'mobile_dist')));
 
 // Fallback for mobile app absolute paths (Expo bundles often use absolute paths)
 app.use('/_expo', express.static(path.join(__dirname, 'mobile_dist', '_expo')));
-app.use('/assets', express.static(path.join(__dirname, 'mobile_dist', 'assets')));
-app.use('/favicon.ico', express.static(path.join(__dirname, 'mobile_dist', 'favicon.ico')));
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'mobile_dist', 'favicon.ico')));
 
 const PORT = process.env.PORT1 || 9271;
 const TEAM_ID = "1nt3ern4l_53rv3r_3rr0r";
@@ -305,6 +310,11 @@ app.get('/transactions/:uid', (req, res) => {
 });
 
 // --- SERVER INITIALIZATION ---
+
+// SPA Fallback for /mobile (MUST BE LAST)
+app.get(/^\/mobile\/.*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'mobile_dist', 'index.html'));
+});
 
 io.on('connection', (socket) => {
   console.log('Client connected to Socket.IO');
