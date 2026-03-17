@@ -65,6 +65,7 @@ app.use('/mobile', express.static(path.join(__dirname, 'mobile_dist')));
 
 // Fallback for mobile app absolute paths (Expo bundles often use absolute paths)
 app.use('/_expo', express.static(path.join(__dirname, 'mobile_dist', '_expo')));
+app.use('/assets', express.static(path.join(__dirname, 'mobile_dist', 'assets')));
 app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'mobile_dist', 'favicon.ico')));
 
 const PORT = process.env.PORT1 || 9271;
@@ -310,6 +311,9 @@ app.get('/transactions/:uid', (req, res) => {
 });
 
 // --- SERVER INITIALIZATION ---
+
+// Generic static fallback for root level assets (Expo often requests from root)
+app.use(express.static(path.join(__dirname, 'mobile_dist')));
 
 // SPA Fallback for /mobile (MUST BE LAST)
 app.get(/^\/mobile\/.*/, (req, res) => {
