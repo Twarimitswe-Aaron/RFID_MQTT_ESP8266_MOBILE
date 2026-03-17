@@ -20,9 +20,13 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const app = express();
 const server = http.createServer(app);
 
-// Simple logger middleware
+// Enhanced logger middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} [${res.statusCode}] - ${duration}ms`);
+  });
   next();
 });
 const io = new Server(server, {
@@ -59,14 +63,18 @@ app.use('/api', productRoutes);
 // Mount SQLite Web routes
 app.use('/web/api', webRoutes);
 
-// Static file serving for web dashboard and mobile app
+// --- STATIC FILE SERVING ---
+// Priority to explicit paths
 app.use('/web', express.static(path.join(__dirname, 'web_public')));
 app.use('/mobile', express.static(path.join(__dirname, 'mobile_dist')));
 
-// Fallback for mobile app absolute paths (Expo bundles often use absolute paths)
+// Shared asset fallbacks (Expo often uses these from root)
 app.use('/_expo', express.static(path.join(__dirname, 'mobile_dist', '_expo')));
 app.use('/assets', express.static(path.join(__dirname, 'mobile_dist', 'assets')));
 app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'mobile_dist', 'favicon.ico')));
+
+// Catch-all for any other files in mobile_dist that might be requested from root
+app.use(express.static(path.join(__dirname, 'mobile_dist')));
 
 const PORT = process.env.PORT1 || 9271;
 const TEAM_ID = "1nt3ern4l_53rv3r_3rr0r";
@@ -312,11 +320,9 @@ app.get('/transactions/:uid', (req, res) => {
 
 // --- SERVER INITIALIZATION ---
 
-// Generic static fallback for root level assets (Expo often requests from root)
-app.use(express.static(path.join(__dirname, 'mobile_dist')));
-
 // SPA Fallback for /mobile (MUST BE LAST)
-app.get(/^\/mobile\/.*/, (req, res) => {
+// Only fallback for non-file requests (doesn't end with an extension)
+app.get(/^\/mobile\/((?![^/]+\.[^/]+$).)*$/, (req, res) => {
   res.sendFile(path.join(__dirname, 'mobile_dist', 'index.html'));
 });
 
@@ -326,16 +332,13 @@ io.on('connection', (socket) => {
 
 // Robust upgrade handler
 server.on('upgrade', (request, socket, head) => {
-  const url = new URL(request.url, `http://${request.headers.host}`);
+  const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
-  if (pathname === '/web/ws' || pathname === '/web/ws/') {
+  if (pathname.replace(/\/$/, '') === '/web/ws') {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit('connection', ws, request);
     });
-  } else if (!pathname.startsWith('/socket.io/')) {
-    // If it's not socket.io and not our /web/ws, close it to avoid hangs
-    // socket.destroy();
   }
 });
 
