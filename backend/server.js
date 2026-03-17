@@ -63,18 +63,26 @@ app.use('/api', productRoutes);
 // Mount SQLite Web routes
 app.use('/web/api', webRoutes);
 
+// Health check to verify version
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', version: '1.0.5', timestamp: new Date().toISOString() });
+});
+
 // --- STATIC FILE SERVING ---
-// Priority to explicit paths
-app.use('/web', express.static(path.join(__dirname, 'web_public')));
-app.use('/mobile', express.static(path.join(__dirname, 'mobile_dist')));
+// Consolidated approach: Serve mobile_dist from multiple mount points to satisfy both relative and absolute paths
+const mobileDistPath = path.join(__dirname, 'mobile_dist');
+const webPublicPath = path.join(__dirname, 'web_public');
 
-// Shared asset fallbacks (Expo often uses these from root)
-app.use('/_expo', express.static(path.join(__dirname, 'mobile_dist', '_expo')));
-app.use('/assets', express.static(path.join(__dirname, 'mobile_dist', 'assets')));
-app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'mobile_dist', 'favicon.ico')));
+app.use('/web', express.static(webPublicPath));
+app.use('/mobile', express.static(mobileDistPath));
 
-// Catch-all for any other files in mobile_dist that might be requested from root
-app.use(express.static(path.join(__dirname, 'mobile_dist')));
+// These catch absolute paths like /assets/ or /_expo/ requested from the root
+app.use('/_expo', express.static(path.join(mobileDistPath, '_expo')));
+app.use('/assets', express.static(path.join(mobileDistPath, 'assets')));
+app.get('/favicon.ico', (req, res) => res.sendFile(path.join(mobileDistPath, 'favicon.ico')));
+
+// Final fallback for any stray root requests
+app.use(express.static(mobileDistPath));
 
 const PORT = process.env.PORT1 || 9271;
 const TEAM_ID = "1nt3ern4l_53rv3r_3rr0r";
